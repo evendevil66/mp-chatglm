@@ -111,6 +111,11 @@ private suspend fun RoutingContext.handleTextMessage(
             call.respondText(replyTextMessage(fromUserName, toUserName, responseMessage1), ContentType.Text.Xml)
             return
         }
+    }
+    if (content.trim() == "清空记忆") {
+            userMessageCache.remove(fromUserName)
+            responseMessage1 = "记忆已清空，你可以向我提问问题啦！"
+            call.respondText(replyTextMessage(fromUserName, toUserName, responseMessage1), ContentType.Text.Xml)
 
     }
     // 检查是否已有相同 msgId 的请求在处理
@@ -227,6 +232,9 @@ fun chatGlm(fromUserName:String,content:String):String{
         messages.removeAt(1) // 移除最早的消息
     }
 
+    // 更新缓存
+    userMessageCache[fromUserName] = UserMessageCache(messages, currentTime)
+
     //遍历 messages，输出日志
     for (message in messages) {
         logger.info("Role: ${message.role}, Content: ${message.content}")
@@ -244,11 +252,14 @@ fun chatGlm(fromUserName:String,content:String):String{
         .messages(messages)
         .build()
     val invokeModelApiResp = client.invokeModelApi(chatCompletionRequest)
-    val responseMessage = invokeModelApiResp.data.choices[0].message.content.toString()
+    var responseMessage = invokeModelApiResp.data.choices[0].message.content.toString()
 
     // 添加助手的响应到消息列表
     messages.add(ChatMessage(ChatMessageRole.ASSISTANT.value(), responseMessage))
-
+    if(userMessageCache.size>6 && userMessageCache.size%4==0){
+        responseMessage=
+            "$responseMessage\n如果前面的对话对你来说没有用了，可以发送“清空记忆”给我，让我忘掉前面的记忆，响应速度更快哦～"
+    }
     // 更新缓存
     userMessageCache[fromUserName] = UserMessageCache(messages, currentTime)
     logger.info("请求结果获取成功：$responseMessage")
