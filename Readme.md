@@ -33,7 +33,7 @@
 
 ## 使用方法
 1、**通过Actions或Releases页面下载编译好的jar包**  
-2、**创建application.conf文件，并填写配置信息**
+2、**创建application.conf文件，并填写配置信息。其中appid、appSecret、encodingAESKey暂时非必要可留空**
 
 
 ```bash
