@@ -52,6 +52,11 @@ dependencies {
     implementation("io.ktor:ktor-server-netty-jvm")
     implementation("ch.qos.logback:logback-classic:$logback_version")
     implementation("cn.bigmodel.openapi:oapi-java-sdk:release-V4-2.3.0")
+    // 更新 okhttp 和 okio 的版本
+    implementation("com.squareup.okhttp3:okhttp:4.9.3") // 替换为安全版本
+    implementation("com.squareup.okio:okio:3.9.1") // 替换为安全版本
+    // 更新 commons-codec 的版本
+    implementation("commons-codec:commons-codec:1.13") // 替换为最新安全版本
 
     testImplementation("io.ktor:ktor-server-test-host-jvm")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit:$kotlin_version")

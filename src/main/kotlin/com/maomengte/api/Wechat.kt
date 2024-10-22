@@ -1,6 +1,6 @@
 package com.maomengte.api
 
-import com.example.config.AppConfig
+import com.maomengte.config.AppConfig
 import com.fasterxml.jackson.dataformat.xml.XmlMapper
 import com.maomengte.model.WeChatMessage
 import com.zhipu.oapi.ClientV4
@@ -102,12 +102,15 @@ private suspend fun RoutingContext.handleTextMessage(
         val userMessageCache = userMessageCache[fromUserName]
         val lastMessage = userMessageCache?.messages?.lastOrNull()
         if (lastMessage == null || lastMessage.role == "user") {
-            val errorResponse = "你还没有向我提问过，或者我还没有生成回答，请先向我提问或稍后再试哦！"
+            val errorResponse = "我还没有生成回答，或者你还没有向我提问过，请先向我提问或稍后再试哦！"
             call.respondText(replyTextMessage(fromUserName, toUserName, errorResponse), ContentType.Text.Xml)
             return
         }
         if (lastMessage.role == "assistant") {
             responseMessage1 = lastMessage.content.toString()
+            if(checkAndTruncate(responseMessage1, fromUserName,toUserName)){
+                return
+            }
             call.respondText(replyTextMessage(fromUserName, toUserName, responseMessage1), ContentType.Text.Xml)
             return
         }
@@ -116,7 +119,7 @@ private suspend fun RoutingContext.handleTextMessage(
             userMessageCache.remove(fromUserName)
             responseMessage1 = "记忆已清空，你可以向我提问问题啦！"
             call.respondText(replyTextMessage(fromUserName, toUserName, responseMessage1), ContentType.Text.Xml)
-
+            return
     }
     // 检查是否已有相同 msgId 的请求在处理
     val pendingRequest = pendingRequests[msgId]
@@ -126,6 +129,9 @@ private suspend fun RoutingContext.handleTextMessage(
             logger.info("请求已完成，返回结果")
             // 请求已完成，返回结果
             val result = pendingRequest.deferred.await()
+            if(checkAndTruncate(result, fromUserName,toUserName)){
+                return
+            }
             call.respondText(replyTextMessage(fromUserName, toUserName, result), ContentType.Text.Xml)
             return
         }
@@ -163,6 +169,28 @@ private suspend fun RoutingContext.handleTextMessage(
     }
 }
 
+//判断是否需要截断并返回
+private suspend fun RoutingContext.checkAndTruncate(result: String,fromUserName:String,toUserName:String):Boolean {
+    if (result.length>=600){
+        var result1 = result.substring(0, 550)
+        val result2 = result.substring(550)
+        //删除缓存中的最后一条数据
+        userMessageCache[fromUserName]?.messages?.removeLast()
+        val messages = userMessageCache[fromUserName]?.messages
+        if(messages != null){
+            messages.add(ChatMessage(ChatMessageRole.ASSISTANT.value(), result1))
+            messages.add(ChatMessage(ChatMessageRole.ASSISTANT.value(), result2))
+            val currentTime = System.currentTimeMillis()
+            userMessageCache[fromUserName] = UserMessageCache(messages, currentTime)
+        }
+        result1 = "$result1\n\n本次回答较长，你可以回复“获取结果”继续获得后续内容哦"
+        call.respondText(replyTextMessage(fromUserName, toUserName, result1), ContentType.Text.Xml)
+        return true
+    }else{
+        return false
+    }
+}
+
 private suspend fun RoutingContext.awaitResult(pendingRequest: PendingRequest, fromUserName: String, toUserName: String): String? {
     val timeoutAttempts: List<Long> = listOf(1000, 2000, 1500) // 定义超时时间列表
     for (timeout in timeoutAttempts) {
@@ -172,6 +200,9 @@ private suspend fun RoutingContext.awaitResult(pendingRequest: PendingRequest, f
         if (result != null) {
             logger.info("异步请求已完成，返回结果")
             logger.info("返回结果：$result")
+            if(checkAndTruncate(result, fromUserName,toUserName)){
+                return result
+            }
             call.respondText(replyTextMessage(fromUserName, toUserName, result), ContentType.Text.Xml)
             return result
         }

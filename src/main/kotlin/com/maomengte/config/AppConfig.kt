@@ -1,5 +1,4 @@
-package com.example.config
-
+package com.maomengte.config
 import com.typesafe.config.ConfigFactory
 import io.ktor.server.config.*
 
